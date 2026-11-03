@@ -1,0 +1,40 @@
+# NeMo Guardrails configuration for the anxiety-support assistant.
+#
+# - Input rail:  crisis keyword net + Llama Guard 3 moderation of the user query.
+# - Dialog rails: embedding-only intent matching (no LLM call) steers medication,
+#                 diagnosis, off-topic, jailbreak and crisis messages to fixed,
+#                 reviewed replies. Everything else falls through to the CBT agent.
+# - Output rail: Llama Guard 3 moderation of the generated reply.
+#
+# base_url / model below are overridden at runtime from environment variables
+# (see src/anxiety_support/safety/rails.py).
+
+models:
+  - type: main
+    engine: openai
+    model: gemma-cbt
+    parameters:
+      base_url: http://localhost:8000/v1
+      api_key: EMPTY
+
+rails:
+  input:
+    flows:
+      - moderate user input
+  output:
+    flows:
+      - moderate bot output
+  dialog:
+    user_messages:
+      # Intent matching is done with the embedding index only, so steering is
+      # deterministic and costs no LLM call. Messages below the threshold get the
+      # fallback intent, which routes to the CBT agent.
+      embeddings_only: true
+      # Tuned on evaluation/data/safety_dev.jsonl only (cosine sweep 0.30-0.60): cosine 0.40 gave
+      # the best dev accuracy with zero benign false positives. The test split is never used for tuning.
+      # NeMo does not compare raw cosine: score = 1 - sqrt(2 - 2*cos) / 2 (Annoy-compatible),
+      # so cosine 0.40 corresponds to a NeMo threshold of 0.45.
+      embeddings_only_similarity_threshold: 0.45
+      embeddings_only_fallback_intent: share feelings
+
+lowest_temperature: 0.0

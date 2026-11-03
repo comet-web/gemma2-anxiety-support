@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.cache/
+.env
+
+# generated data and model artefacts (re-create with training/prepare_data.py and the notebook)
+/data/
+/outputs/
+wandb/
+
+# per-row eval dumps are large; the summary .md files are committed
+evaluation/results/*.json
+!evaluation/results/training_metrics.json
+!evaluation/results/responses_eval.json
+.fastembed/
+ci-results/

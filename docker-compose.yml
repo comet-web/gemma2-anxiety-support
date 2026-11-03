@@ -1,0 +1,84 @@
+# One GPU (>= 16 GB, Ampere or newer recommended for bf16) runs both vLLM servers.
+#   1. export HF_TOKEN=...   (accept the Gemma-2 and Llama Guard 3 licences on Hugging Face first)
+#   2. train the adapter (notebooks/colab_train.ipynb) and put it in ./outputs/gemma2-cbt-qlora/adapter
+#   3. docker compose up --build
+#   4. curl -s localhost:8080/v1/chat -H 'content-type: application/json' -d '{"message":"I keep panicking before exams"}'
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  guard:
+    <<: *gpu
+    image: vllm/vllm-openai:v0.32.0
+    command: >
+      --model meta-llama/Llama-Guard-3-1B
+      --port 8001
+      --gpu-memory-utilization 0.25
+      --max-model-len 4096
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    ipc: host
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/v1/models')"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+
+  llm:
+    <<: *gpu
+    image: vllm/vllm-openai:v0.32.0
+    # Multi-LoRA serving: the base instruct model (planner / topic check) and the CBT adapter
+    # (responder) come from one process and share the same base weights.
+    command: >
+      --model google/gemma-2-2b-it
+      --enable-lora
+      --lora-modules gemma-cbt=/adapters/gemma-cbt
+      --max-lora-rank 16
+      --port 8000
+      --gpu-memory-utilization 0.55
+      --max-model-len 4096
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+      - ./outputs/gemma2-cbt-qlora/adapter:/adapters/gemma-cbt:ro
+    ipc: host
+    depends_on:
+      guard:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/models')"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - LLM_BASE_URL=http://llm:8000/v1
+      - GUARD_BASE_URL=http://guard:8001/v1
+      - RESPONDER_MODEL=gemma-cbt
+      - PLANNER_MODEL=google/gemma-2-2b-it
+      - GUARD_MODEL=meta-llama/Llama-Guard-3-1B
+      - CRISIS_REGION=${CRISIS_REGION:-IN}
+    depends_on:
+      llm:
+        condition: service_healthy
+      guard:
+        condition: service_healthy
+
+volumes:
+  hf-cache:
