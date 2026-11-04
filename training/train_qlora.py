@@ -178,6 +178,18 @@ def main() -> None:
     )
     trainer.model.print_trainable_parameters()
 
+    # TRL casts LoRA weights of quantized models to bf16 unconditionally (QLoRA paper recipe). Without
+    # native bf16 (e.g. T4) we train with fp16 autocast + GradScaler, which cannot unscale bf16 grads
+    # ("_amp_foreach_non_finite_check_and_unscale_cuda not implemented for 'BFloat16'"). Standard AMP
+    # keeps trainable weights in fp32, so restore that. Only the ~20M adapter params are affected.
+    if not bf16:
+        recast = 0
+        for _, param in trainer.model.named_parameters():
+            if param.requires_grad and param.dtype != torch.float32:
+                param.data = param.data.float()
+                recast += 1
+        print(f"fp16 mixed precision: {recast} trainable tensors kept in fp32")
+
     # Sanity check that the loss really covers counselor turns only. Depending on the TRL version the
     # mask is exposed as `assistant_masks` or already applied to `labels` (-100 = ignored).
     sample = trainer.train_dataset[0]
