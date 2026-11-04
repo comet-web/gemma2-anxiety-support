@@ -9,6 +9,9 @@ model writes the reply. Served with **FastAPI + vLLM** in **Docker**.
 > give medication advice, and always escalates crisis disclosures to human helplines
 > (India: Tele-MANAS 14416, emergency 112).
 
+For how a message and a training conversation move through the code, and the implementation details behind
+it, see **[docs/PROJECT_WALKTHROUGH.md](docs/PROJECT_WALKTHROUGH.md)**.
+
 ## Architecture
 
 ```mermaid
