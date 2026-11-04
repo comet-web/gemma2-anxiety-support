@@ -34,6 +34,21 @@ from chat_template import GEMMA2_TRAIN_TEMPLATE  # noqa: E402
 SMOKE_MODEL_ID = "trl-internal-testing/tiny-Gemma2ForCausalLM"
 
 
+def check_torchao() -> None:
+    """Colab preinstalls an old torchao; recent PEFT raises on any torchao < 0.16 while wrapping
+    the model, even though torchao isn't used here. Fail early with the fix instead."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        v = version("torchao")
+    except PackageNotFoundError:
+        return
+    major, minor = (int(x) for x in v.split(".")[:2])
+    if (major, minor) < (0, 16):
+        raise SystemExit(f"torchao {v} is installed but PEFT needs >= 0.16 (or no torchao). "
+                         "Run:  pip uninstall -y torchao   (it is not used by this project)")
+
+
 class StopOnNonFiniteLoss(TrainerCallback):
     """Gemma-2 can overflow in fp16 (e.g. on a T4, which has no bf16). Fail fast instead of
     training on NaNs for hours."""
@@ -68,10 +83,13 @@ def main() -> None:
                    per_device_train_batch_size=2, gradient_accumulation_steps=1, logging_steps=1,
                    eval_steps=1, save_steps=1)
 
+    check_torchao()
     on_gpu = torch.cuda.is_available()
     if not on_gpu and not args.smoke:
         raise SystemExit("QLoRA training needs a CUDA GPU (use the Colab notebook), or pass --smoke.")
-    bf16 = on_gpu and torch.cuda.is_bf16_supported()
+    # Native bf16 needs compute capability >= 8.0 (Ampere+). torch.cuda.is_bf16_supported() also
+    # counts emulation and returns True on a T4, which would make training slow and unstable.
+    bf16 = on_gpu and torch.cuda.get_device_capability()[0] >= 8
     fp16 = on_gpu and not bf16
     compute_dtype = torch.bfloat16 if bf16 else (torch.float16 if fp16 else torch.float32)
     print(f"device: {torch.cuda.get_device_name(0) if on_gpu else 'cpu'} | compute dtype: {compute_dtype}")

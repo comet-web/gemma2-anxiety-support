@@ -27,7 +27,8 @@ def main() -> None:
     ap.add_argument("--push-merged", default=None, help="HF repo id to upload the merged model to")
     args = ap.parse_args()
 
-    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
+    # native bf16 only on compute capability >= 8 (is_bf16_supported() also counts emulation, e.g. on T4)
+    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 8 else torch.float16
     base = AutoModelForCausalLM.from_pretrained(args.base, dtype=dtype, device_map="auto")
     # Keep the base model's stock chat template for inference.
     tokenizer = AutoTokenizer.from_pretrained(args.base)
