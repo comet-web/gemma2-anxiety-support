@@ -102,7 +102,23 @@ model, since LoRA B starts at zero) and after, on the same held-out conversation
 
 ## Evaluation
 
-### Measured so far (CPU, reproducible: `python evaluation/eval_safety.py --target rails-offline --split test`)
+### Fine-tuning: base vs QLoRA adapter (`evaluation/results/training_metrics.json`)
+
+Run: 1,000 anxiety-focused training conversations, 1 epoch (63 optimiser steps), 34.5 min on a single Colab **T4**
+(4-bit NF4 base, fp16 autocast). Both models were scored on the same 200 held-out conversations, with loss on counselor
+turns only:
+
+| Held-out CBT dialogues (n=200) | Base Gemma-2-2B-it | + CBT QLoRA adapter | Change |
+|---|---|---|---|
+| Eval loss | 1.921 | **1.092** | −43.1% |
+| Perplexity | 6.83 | **2.98** | −56.3% |
+| Next-token accuracy (counselor turns) | 52.7% | **67.1%** | +14.4 pts |
+
+This is an in-distribution result: the eval conversations are synthetic CACTUS dialogues, like the training data. It
+shows the adapter learned the CBT counselor style. It is not evidence of clinical quality (see Limitations). Training on
+all ~12.3k conversations is a config change (`max_train_samples: null`).
+
+### Safety layers on CPU (reproducible: `python evaluation/eval_safety.py --target rails-offline --split test`)
 
 The "rails-offline" target runs the **keyword net + NeMo dialog rails only**, with Llama Guard and the LLM topic tier
 stubbed out. It shows what the CPU-only layers catch by themselves on the 65-prompt held-out test set:
@@ -132,12 +148,11 @@ What this showed:
 
 | Eval | Command | Output |
 |---|---|---|
-| Base vs fine-tuned perplexity on held-out CBT dialogues | `train_qlora.py` | `training_metrics.json` |
 | Llama Guard alone (ablation) | `eval_safety.py --target guard` | `safety_guard_test.md` |
 | Full stack | `eval_safety.py --target api` | `safety_api_test.md` |
 | Response quality: base vs fine-tuned (similarity to real counselor turn, question style, optional pairwise LLM judge in both orderings) | `eval_responses.py` | `responses_eval.md` |
 
-_These results are not filled in yet. Run `notebooks/colab_train_and_eval.ipynb` and commit the generated files._
+_Not filled in yet: these need notebook Part B (vLLM serving the base model, the adapter and Llama Guard 3)._
 
 ## Quickstart
 
