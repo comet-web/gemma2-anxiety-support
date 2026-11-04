@@ -3,7 +3,11 @@
 A CBT (Cognitive Behavioral Therapy) conversational assistant for anxiety, built around a
 **QLoRA fine-tuned Gemma-2** and a **layered safety stack** (NVIDIA NeMo Guardrails + Meta Llama Guard 3).
 An **agentic session controller** plans each turn (CBT phase + tool use) before the fine-tuned
-model writes the reply. Served with **FastAPI + vLLM** in **Docker**.
+model writes the reply. Exposed as a **FastAPI** service, with **vLLM** serving and **Docker Compose** deployment configured.
+
+> **Status:** QLoRA training is done (results below). The safety pipeline and API are tested end to end against
+> simulated model servers. **Not yet validated on a GPU:** vLLM serving, and the Llama Guard 3 model itself
+> (pending licence access), so the full-stack safety and response-quality evals have not been run yet.
 
 > **Not a medical device.** This is a self-help / research project. It does not diagnose, does not
 > give medication advice, and always escalates crisis disclosures to human helplines
