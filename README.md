@@ -150,9 +150,7 @@ python evaluation/eval_safety.py --target rails-offline --split dev
 ```
 
 **Train + evaluate on Colab:** open `notebooks/colab_train_and_eval.ipynb`, add an `HF_TOKEN` secret, and accept the
-Gemma-2 and Llama Guard 3 licences on Hugging Face. While the repo is private, also add a `GH_TOKEN` secret (a
-fine-grained token with read-only Contents access) so the notebook can clone it.
-
+Gemma-2 and Llama Guard 3 licences on Hugging Face.
 **Serve with Docker (one GPU ≥ 16 GB, NVIDIA Container Toolkit):**
 ```bash
 export HF_TOKEN=...
