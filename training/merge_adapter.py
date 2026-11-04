@@ -28,7 +28,7 @@ def main() -> None:
     args = ap.parse_args()
 
     dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
-    base = AutoModelForCausalLM.from_pretrained(args.base, torch_dtype=dtype, device_map="auto")
+    base = AutoModelForCausalLM.from_pretrained(args.base, dtype=dtype, device_map="auto")
     # Keep the base model's stock chat template for inference.
     tokenizer = AutoTokenizer.from_pretrained(args.base)
     model = PeftModel.from_pretrained(base, args.adapter)
